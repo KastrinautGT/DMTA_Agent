@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DMTA Agent — Campaign Viewer</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@600;700;800&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background:#06090f; color:#cbd5e1; font-family:'JetBrains Mono',monospace; min-height:100vh; }
+  header { background:#070c14; border-bottom:1px solid #0f1e35; padding:14px 28px; display:flex; align-items:center; gap:12px; }
+  .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:15px; color:#e2e8f0; letter-spacing:.05em; }
+  .logo span { color:#22d3ee; }
+  #launch { max-width:640px; margin:80px auto; background:#080e1a; border:1px solid #0f1e35; border-radius:8px; padding:32px; }
+  #launch h2 { font-family:'Syne',sans-serif; font-size:18px; color:#e2e8f0; margin-bottom:8px; }
+  #launch p { font-size:11px; color:#334155; margin-bottom:24px; line-height:1.7; }
+  label { font-size:9px; letter-spacing:.16em; color:#334155; display:block; margin-bottom:6px; }
+  textarea, input[type=text] { width:100%; background:#060b14; border:1px solid #0d1e33; border-radius:4px; color:#94a3b8; font-family:'JetBrains Mono',monospace; font-size:12px; padding:10px 12px; line-height:1.6; resize:vertical; }
+  textarea:focus, input:focus { outline:none; border-color:#1d4ed8; }
+  .field { margin-bottom:18px; }
+  button { display:inline-block; border:none; border-radius:4px; color:#fff; font-family:'JetBrains Mono',monospace; font-size:11px; font-weight:600; letter-spacing:.12em; padding:11px 28px; cursor:pointer; transition:opacity .2s; }
+  button:hover { opacity:.85; }
+  .btn-primary { background:linear-gradient(135deg,#1d4ed8,#0ea5e9); }
+  .btn-approve { background:linear-gradient(135deg,#065f46,#059669); }
+  .btn-edit    { background:linear-gradient(135deg,#92400e,#d97706); }
+  .btn-stop    { background:linear-gradient(135deg,#7f1d1d,#dc2626); }
+  .btn-ghost   { background:transparent; border:1px solid #1e3a5f; color:#334155; font-size:10px; padding:8px 20px; }
+  #statusbar { display:none; background:#070c14; border-bottom:1px solid #0d1e33; padding:10px 28px; font-size:10px; color:#334155; letter-spacing:.1em; align-items:center; gap:10px; }
+  .dot { width:7px; height:7px; border-radius:50%; background:#22d3ee; animation:pulse 1.4s infinite; flex-shrink:0; }
+  .dot.green  { background:#4ade80; animation:none; }
+  .dot.yellow { background:#facc15; animation:pulse 1s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  #results { display:none; padding:24px 28px; max-width:1280px; margin:0 auto; }
+  .timeline { display:flex; margin-bottom:24px; border:1px solid #0d1e33; border-radius:6px; overflow:hidden; }
+  .phase-cell { flex:1; padding:14px 16px; background:#080e1b; border-right:1px solid #0d1e33; transition:background .3s; }
+  .phase-cell:last-child { border-right:none; }
+  .phase-cell.active { background:#060f1f; }
+  .phase-cell.done   { background:#060d18; }
+  .phase-cell.paused { background:#0f0a00; }
+  .phase-icon  { font-size:18px; margin-bottom:6px; }
+  .phase-label { font-size:9px; letter-spacing:.18em; color:#1e3a5f; }
+  .phase-cell.active .phase-label { color:#22d3ee; }
+  .phase-cell.done   .phase-label { color:#334155; }
+  .phase-cell.paused .phase-label { color:#facc15; }
+  .phase-hint { font-size:10px; color:#1e293b; margin-top:3px; }
+  .phase-cell.active .phase-hint { color:#1e3a5f; }
+  .phase-cell.paused .phase-hint { color:#78350f; }
+  #approval-gate { display:none; background:#080b00; border:1px solid #facc1533; border-radius:8px; padding:24px; margin-bottom:24px; position:relative; overflow:hidden; }
+  #approval-gate::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,#facc15,#f59e0b,#facc15); }
+  .gate-header { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .gate-icon   { font-size:20px; }
+  .gate-title  { font-family:'Syne',sans-serif; font-size:14px; color:#facc15; letter-spacing:.05em; }
+  .gate-subtitle { font-size:10px; color:#78350f; margin-top:2px; }
+  .gate-findings { margin-bottom:20px; }
+  .gate-section  { margin-bottom:14px; }
+  .gate-label    { font-size:9px; letter-spacing:.14em; color:#451a03; margin-bottom:5px; }
+  .gate-text     { font-size:11px; color:#92400e; line-height:1.65; }
+  .gate-lead     { font-size:20px; color:#fbbf24; font-weight:600; margin-bottom:4px; }
+  .gate-score-el { font-size:10px; color:#78350f; }
+  .score-bar  { height:3px; background:#1c1200; border-radius:2px; margin:8px 0 16px; }
+  .score-fill { height:3px; border-radius:2px; background:linear-gradient(90deg,#d97706,#facc15); transition:width .6s; }
+  .gate-actions { display:flex; flex-direction:column; gap:12px; }
+  .action-row   { display:flex; flex-direction:column; gap:4px; }
+  .edit-area    { display:none; margin-top:10px; }
+  .edit-area textarea { height:72px; font-size:11px; border-color:#451a03; color:#fbbf24; }
+  .edit-area textarea:focus { border-color:#d97706; }
+  .action-desc  { font-size:10px; color:#451a03; }
+  .iter-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:16px; margin-bottom:24px; }
+  .iter-card { background:#060b14; border:1px solid #0d1e33; border-radius:6px; overflow:hidden; }
+  .iter-card.goal { border-color:#16533422; }
+  .iter-header { background:#080e1b; border-bottom:1px solid #0d1e33; padding:10px 16px; display:flex; justify-content:space-between; align-items:center; }
+  .iter-title { font-size:9px; letter-spacing:.14em; color:#334155; }
+  .iter-score { font-size:9px; color:#1e3a5f; }
+  .iter-score.hit { color:#4ade80; }
+  .iter-body  { padding:16px; }
+  .lead-name  { font-size:16px; color:#60a5fa; font-weight:600; margin-bottom:10px; }
+  .bar-wrap   { height:3px; background:#0d1e33; border-radius:2px; margin-bottom:14px; }
+  .bar-fill   { height:3px; border-radius:2px; background:linear-gradient(90deg,#1d4ed8,#22d3ee); transition:width .6s; }
+  .bar-fill.green { background:#4ade80; }
+  .section-title  { font-size:9px; letter-spacing:.14em; color:#1e3a5f; margin-bottom:6px; }
+  .sar-text       { font-size:10px; color:#334155; line-height:1.6; margin-bottom:12px; }
+  .reasoning-text { font-size:10px; color:#475569; line-height:1.6; }
+  .compounds { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
+  .chip { background:#0a1525; border:1px solid #0d1e33; border-radius:3px; padding:4px 10px; font-size:10px; color:#475569; }
+  .chip.override { border-color:#78350f33; color:#92400e; background:#0a0800; }
+  .table-wrap { overflow-x:auto; margin-top:16px; }
+  table { width:100%; border-collapse:collapse; font-size:11px; }
+  th { padding:8px 14px; text-align:right; color:#1e3a5f; font-weight:600; letter-spacing:.1em; font-size:9px; border-bottom:1px solid #0d1e33; }
+  th:first-child { text-align:left; }
+  td { padding:9px 14px; text-align:right; border-bottom:1px solid #0a1525; }
+  td:first-child { text-align:left; }
+  tr.lead-row { background:#070f1f; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:3px; font-size:9px; letter-spacing:.08em; }
+  #lead-summary { display:none; background:#060b14; border:1px solid #16533433; border-radius:6px; padding:24px; margin-bottom:24px; }
+  #lead-summary h3 { font-family:'Syne',sans-serif; font-size:14px; color:#4ade80; margin-bottom:16px; }
+  .lead-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+  .lead-stat { background:#070f1d; border:1px solid #0d1e33; border-radius:4px; padding:14px; }
+  .lead-stat-label { font-size:9px; letter-spacing:.14em; color:#1e3a5f; margin-bottom:4px; }
+  .lead-stat-val { font-size:18px; color:#60a5fa; font-weight:600; }
+  .lead-stat-val.green { color:#4ade80; }
+  .log-box { background:#060b14; border:1px solid #0d1e33; border-radius:6px; overflow:hidden; margin-top:8px; }
+  .log-header { background:#080e1b; border-bottom:1px solid #0d1e33; padding:9px 16px; display:flex; align-items:center; gap:8px; font-size:9px; letter-spacing:.12em; color:#1e3a5f; }
+  #log { padding:16px; height:180px; overflow-y:auto; font-size:11px; line-height:1.75; color:#4ade80; white-space:pre-wrap; }
+  ::-webkit-scrollbar { width:4px; height:4px; }
+  ::-webkit-scrollbar-track { background:#0d1320; }
+  ::-webkit-scrollbar-thumb { background:#1e2d45; border-radius:2px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span>◉</span> FRONTIER AI <span style="color:#1e3a5f;margin:0 6px">/</span> DMTA AGENT</div>
+  <div style="margin-left:auto">
+    <button class="btn-ghost" onclick="doReset()" style="display:none" id="resetBtn">↺ New Campaign</button>
+  </div>
+</header>
+<div id="statusbar"><div class="dot" id="statusdot"></div><span id="statustext">Initialising...</span></div>
+
+<div id="launch">
+  <h2>Launch DMTA Campaign</h2>
+  <p>The agent runs Design → Make → Test → Analyze iterations autonomously,<br>then pauses for your review before each new cycle.</p>
+  <div class="field"><label>CAMPAIGN GOAL</label><textarea id="goalInput" rows="3">JAK2-selective inhibitor: IC50 &lt; 1 nM, &gt;100x selectivity vs JAK1, solubility &gt; 50 ug/mL, HLM t1/2 &gt; 60 min</textarea></div>
+  <div class="field"><label>API BASE URL</label><input type="text" id="apiUrl" value="http://localhost:8000"></div>
+  <button class="btn-primary" onclick="launch()">LAUNCH AGENT ▶</button>
+</div>
+
+<div id="results">
+  <div class="timeline" id="timeline">
+    <div class="phase-cell" id="ph-design">  <div class="phase-icon">◈</div><div class="phase-label">DESIGN</div> <div class="phase-hint">Compound planning</div></div>
+    <div class="phase-cell" id="ph-make">    <div class="phase-icon">⬡</div><div class="phase-label">MAKE</div>   <div class="phase-hint">Synthesis &amp; dispensing</div></div>
+    <div class="phase-cell" id="ph-test">    <div class="phase-icon">◉</div><div class="phase-label">TEST</div>   <div class="phase-hint">Assay panel</div></div>
+    <div class="phase-cell" id="ph-analyze"> <div class="phase-icon">◆</div><div class="phase-label">ANALYZE</div><div class="phase-hint">Agent reasoning</div></div>
+  </div>
+
+  <div id="approval-gate">
+    <div class="gate-header">
+      <div class="gate-icon">⚠</div>
+      <div>
+        <div class="gate-title">SCIENTIST REVIEW REQUIRED</div>
+        <div class="gate-subtitle">Agent paused — awaiting your decision before next iteration</div>
+      </div>
+    </div>
+    <div class="gate-findings">
+      <div class="gate-section">
+        <div class="gate-label">ITERATION LEAD</div>
+        <div class="gate-lead" id="gate-lead">—</div>
+        <div class="gate-score-el" id="gate-score">Convergence: —/100</div>
+        <div class="score-bar"><div class="score-fill" id="gate-score-bar" style="width:0%"></div></div>
+      </div>
+      <div class="gate-section"><div class="gate-label">SAR FINDINGS</div><div class="gate-text" id="gate-sar">—</div></div>
+      <div class="gate-section"><div class="gate-label">AGENT REASONING</div><div class="gate-text" id="gate-reasoning">—</div></div>
+      <div class="gate-section"><div class="gate-label">PROPOSED NEXT STEPS</div><div class="gate-text" id="gate-nextsteps">—</div></div>
+    </div>
+    <div class="gate-actions">
+      <div class="action-row">
+        <button class="btn-approve" onclick="approve('approve')">✓ APPROVE &amp; CONTINUE</button>
+        <div class="action-desc">Agent proceeds with its proposed next steps</div>
+      </div>
+      <div class="action-row">
+        <button class="btn-edit" onclick="toggleEdit()">✏ EDIT DIRECTION</button>
+        <div class="action-desc">Override the agent's plan with your own instructions</div>
+        <div class="edit-area" id="edit-area">
+          <textarea id="override-note" placeholder="e.g. Focus on improving HLM stability — try cyclopropyl at C-4..."></textarea>
+          <div style="margin-top:8px"><button class="btn-edit" onclick="approve('edit')">APPLY &amp; CONTINUE ▶</button></div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn-stop" onclick="approve('stop')">⏹ STOP &amp; ADVANCE LEAD</button>
+        <div class="action-desc">End campaign — current lead advances to optimisation</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="lead-summary"><h3 id="lead-summary-title">🎯 Campaign Complete</h3><div class="lead-grid" id="lead-grid"></div></div>
+  <div class="iter-grid" id="iter-grid"></div>
+  <div class="log-box"><div class="log-header"><div class="dot" id="logdot"></div>agent.stdout</div><div id="log"></div></div>
+</div>
+
+<script>
+const BASE = () => document.getElementById('apiUrl').value.replace(/\/$/,'');
+const ic50Color = v => v<1?'#4ade80':v<10?'#facc15':'#f87171';
+const selColor  = v => v>100?'#4ade80':v>30?'#facc15':'#f87171';
+const solColor  = v => v>50?'#4ade80':'#facc15';
+const t12Color  = v => v>60?'#4ade80':v>30?'#facc15':'#f87171';
+
+let currentCampaignId=null, iterations={}, currentIter=1;
+
+function addLog(msg){ const el=document.getElementById('log'); el.textContent+=msg+'\n'; el.scrollTop=el.scrollHeight; }
+function setStatus(text,state='running'){
+  document.getElementById('statusbar').style.display='flex';
+  document.getElementById('statusdot').className='dot'+(state==='complete'?' green':state==='paused'?' yellow':'');
+  document.getElementById('statustext').textContent=text;
+}
+function setPhase(p){ ['design','make','test','analyze'].forEach(x=>{ document.getElementById('ph-'+x).className='phase-cell'+(x===p?' active':''); }); }
+function markDone(p){ const el=document.getElementById('ph-'+p); if(el) el.className='phase-cell done'; }
+
+function showGate(ev){
+  ['design','make','test','analyze'].forEach(p=>{ document.getElementById('ph-'+p).className='phase-cell paused'; });
+  document.getElementById('gate-lead').textContent=ev.lead;
+  document.getElementById('gate-score').textContent='Convergence: '+ev.convergence_score+'/100';
+  document.getElementById('gate-score-bar').style.width=ev.convergence_score+'%';
+  document.getElementById('gate-sar').textContent=ev.sar_trends;
+  document.getElementById('gate-reasoning').textContent=ev.reasoning;
+  document.getElementById('gate-nextsteps').textContent=ev.next_steps;
+  document.getElementById('edit-area').style.display='none';
+  document.getElementById('override-note').value='';
+  document.getElementById('approval-gate').style.display='block';
+  document.getElementById('approval-gate').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function hideGate(){
+  document.getElementById('approval-gate').style.display='none';
+  ['design','make','test','analyze'].forEach(p=>{ document.getElementById('ph-'+p).className='phase-cell'; });
+}
+function toggleEdit(){ const a=document.getElementById('edit-area'); a.style.display=a.style.display==='none'?'block':'none'; }
+
+async function approve(decision){
+  if(!currentCampaignId) return;
+  const note=decision==='edit'?document.getElementById('override-note').value.trim():null;
+  const decLabel=decision==='approve'?'Approved':decision==='edit'?'Edit applied':'Stopped';
+  addLog('\n  [SCIENTIST] '+decLabel);
+  if(note) addLog('  Override: "'+note+'"');
+  hideGate();
+  setStatus(decision==='stop'?'Stopping...':'Scientist approved — running next iteration...');
+  await fetch(BASE()+'/campaigns/'+currentCampaignId+'/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision,override_note:note})});
+}
+
+function renderIter(n){
+  const it=iterations[n]; if(!it) return;
+  const grid=document.getElementById('iter-grid');
+  let card=document.getElementById('iter-card-'+n);
+  const goal=it.analysis?.goal_achieved, score=it.analysis?.convergence_score??0;
+  if(!card){ card=document.createElement('div'); card.id='iter-card-'+n; grid.appendChild(card); }
+  card.className='iter-card'+(goal?' goal':'');
+  card.innerHTML=`
+    <div class="iter-header">
+      <span class="iter-title">ITERATION ${n}</span>
+      <span class="iter-score ${goal?'hit':''}">${goal?'🎯 GOAL MET':'Score: '+score+'/100'}</span>
+    </div>
+    <div class="iter-body">
+      <div class="lead-name">${it.analysis?it.analysis.best_compound:'<span style="color:#1e3a5f">Running...</span>'}</div>
+      <div class="bar-wrap"><div class="bar-fill ${goal?'green':''}" style="width:${score}%"></div></div>
+      ${it.design?`
+        <div class="section-title">HYPOTHESIS</div>
+        <div class="sar-text">${it.design.hypothesis}</div>
+        ${it.overrideNote?`<div class="section-title" style="color:#78350f;margin-top:8px">SCIENTIST OVERRIDE</div><div class="sar-text" style="color:#92400e">${it.overrideNote}</div>`:''}
+        <div class="compounds">${it.design.compounds.map(c=>`<div class="chip ${it.overrideNote?'override':''}">${c.name} · ${c.scaffold}</div>`).join('')}</div>
+      `:''}
+      ${it.analysis?`
+        <div class="section-title">SAR TRENDS</div><div class="sar-text">${it.analysis.sar_trends}</div>
+        <div class="section-title">REASONING</div><div class="reasoning-text">${it.analysis.reasoning}</div>
+      `:''}
+      ${it.results?renderTable(it.results,it.analysis?.best_compound):''}
+    </div>`;
+}
+
+function renderTable(results,bestName){
+  const rows=results.map(r=>{
+    const isLead=r.name===bestName;
+    const gm=r.ic50_nm<1&&r.sel_jak1>100&&r.sol_ug_ml>50&&r.hlm_t12_min>60;
+    const badge=gm?`<span class="badge" style="background:#052e16;color:#4ade80;border:1px solid #166534">✓ GOAL</span>`:isLead?`<span class="badge" style="background:#0f172a;color:#60a5fa;border:1px solid #1e3a5f">LEAD</span>`:`<span class="badge" style="background:#0c1728;color:#475569;border:1px solid #1e293b">ACTIVE</span>`;
+    return `<tr class="${isLead?'lead-row':''}"><td style="color:${isLead?'#60a5fa':'#94a3b8'};font-weight:${isLead?600:400}">${r.name}${isLead?' ★':''}</td><td style="color:${ic50Color(r.ic50_nm)}">${r.ic50_nm}</td><td style="color:${selColor(r.sel_jak1)}">${r.sel_jak1}x</td><td style="color:${solColor(r.sol_ug_ml)}">${r.sol_ug_ml}</td><td style="color:${t12Color(r.hlm_t12_min)}">${r.hlm_t12_min}</td><td style="color:#64748b">${r.log_p}</td><td>${badge}</td></tr>`;
+  }).join('');
+  return `<div class="table-wrap"><table><thead><tr><th style="text-align:left">COMPOUND</th><th>IC50 (nM)</th><th>SEL (x)</th><th>SOL</th><th>HLM t½</th><th>logP</th><th>STATUS</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+function showLead(lead,results,stopped){
+  const el=document.getElementById('lead-summary'); el.style.display='block';
+  document.getElementById('lead-summary-title').textContent=stopped?'⏹ Campaign Stopped — Lead Advanced':'🎯 Campaign Complete — Lead Candidate';
+  const r=results?.find(x=>x.name===lead)||{};
+  document.getElementById('lead-grid').innerHTML=`
+    <div class="lead-stat"><div class="lead-stat-label">LEAD COMPOUND</div><div class="lead-stat-val">${lead}</div></div>
+    <div class="lead-stat"><div class="lead-stat-label">JAK2 IC50</div><div class="lead-stat-val green">${r.ic50_nm??'—'} nM</div></div>
+    <div class="lead-stat"><div class="lead-stat-label">SELECTIVITY</div><div class="lead-stat-val green">${r.sel_jak1??'—'}x</div></div>
+    <div class="lead-stat"><div class="lead-stat-label">SOLUBILITY</div><div class="lead-stat-val">${r.sol_ug_ml??'—'} ug/mL</div></div>
+    <div class="lead-stat"><div class="lead-stat-label">HLM t½</div><div class="lead-stat-val">${r.hlm_t12_min??'—'} min</div></div>`;
+}
+
+async function launch(){
+  const goal=document.getElementById('goalInput').value.trim(); if(!goal) return;
+  let campaignId;
+  try {
+    const res=await fetch(BASE()+'/campaigns',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({goal})});
+    campaignId=(await res.json()).campaign_id; currentCampaignId=campaignId;
+  } catch(e){ alert('Could not reach '+BASE()+' — is uvicorn running?'); return; }
+  document.getElementById('launch').style.display='none';
+  document.getElementById('results').style.display='block';
+  document.getElementById('resetBtn').style.display='inline-block';
+  document.getElementById('logdot').className='dot';
+  setStatus('Agent running...');
+  addLog('Campaign: '+campaignId); addLog('Goal: '+goal); addLog('─'.repeat(54));
+
+  const response=await fetch(BASE()+'/campaigns/'+campaignId+'/run');
+  const reader=response.body.getReader(); const decoder=new TextDecoder(); let buffer='';
+
+  while(true){
+    const {done,value}=await reader.read(); if(done) break;
+    buffer+=decoder.decode(value,{stream:true});
+    const lines=buffer.split('\n'); buffer=lines.pop();
+    for(const line of lines){
+      if(!line.startsWith('data:')) continue;
+      let ev; try{ ev=JSON.parse(line.slice(5).trim()); }catch{ continue; }
+      switch(ev.type){
+        case 'iteration_start': currentIter=ev.iteration; iterations[currentIter]={}; addLog('\n── ITERATION '+ev.iteration+' ──'); renderIter(currentIter); break;
+        case 'phase': setPhase(ev.value); addLog('  '+ev.value.toUpperCase()+'...'); break;
+        case 'design_complete': markDone('design'); iterations[currentIter].design={hypothesis:ev.hypothesis,compounds:ev.compounds}; addLog('  Hypothesis: '+ev.hypothesis); addLog('  Compounds: '+ev.compounds.map(c=>c.name).join(', ')); renderIter(currentIter); break;
+        case 'make_complete': markDone('make'); addLog('  Dispensed '+ev.compounds_dispensed+' compounds ('+ev.qc_passed+' QC passed)'); break;
+        case 'test_complete': markDone('test'); iterations[currentIter].results=ev.results; addLog('  Assay complete: '+ev.results.length+' compounds profiled'); renderIter(currentIter); break;
+        case 'analysis_complete': markDone('analyze'); iterations[currentIter].analysis=ev; addLog('  Lead: '+ev.best_compound+'  Score: '+ev.convergence_score+'/100  Goal: '+(ev.goal_achieved?'✓':'✗')); addLog('  SAR: '+ev.sar_trends); renderIter(currentIter); break;
+        case 'approval_required': setStatus('Iteration '+ev.iteration+' complete — awaiting scientist review','paused'); addLog('\n  ⚠  PAUSED — scientist review required'); showGate(ev); break;
+        case 'approval_received':
+          const labels={approve:'Approved ✓',edit:'Edit applied ✏',stop:'Stopped ⏹'};
+          addLog('  [GATE] '+( labels[ev.decision]||ev.decision));
+          if(ev.override_note){ addLog('  [GATE] Override: "'+ev.override_note+'"'); if(iterations[currentIter+1]) iterations[currentIter+1].overrideNote=ev.override_note; }
+          setStatus('Continuing...'); break;
+        case 'campaign_complete':
+          hideGate(); setStatus('Complete — Lead: '+ev.lead,'complete');
+          document.getElementById('logdot').className='dot green';
+          addLog('\n'+'═'.repeat(54));
+          addLog((ev.stopped_by_scientist?'⏹ STOPPED':'✅ COMPLETE')+' — Lead: '+ev.lead+' ('+ev.iterations+' iter'+(ev.iterations>1?'s':'')+')');
+          const bi=Object.values(iterations).find(it=>it.analysis?.best_compound===ev.lead);
+          showLead(ev.lead,bi?.results,ev.stopped_by_scientist); break;
+      }
+    }
+  }
+}
+
+function doReset(){
+  iterations={}; currentCampaignId=null; currentIter=1;
+  document.getElementById('launch').style.display='block';
+  document.getElementById('results').style.display='none';
+  document.getElementById('lead-summary').style.display='none';
+  document.getElementById('approval-gate').style.display='none';
+  document.getElementById('statusbar').style.display='none';
+  document.getElementById('resetBtn').style.display='none';
+  document.getElementById('iter-grid').innerHTML='';
+  document.getElementById('log').textContent='';
+}
+</script>
+</body>
+</html>
