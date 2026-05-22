@@ -1,4 +1,6 @@
+## Demo
 
+[▶ Watch the agent run a full DMTA campaign](https://www.loom.com/share/7173f15448e74e389a9866f637fbdeff)
 
 # DMTA Agent
 
@@ -49,7 +51,10 @@ Docker and Kubernetes ready.
 | **Stateless agent** | Campaign state lives in Redis (or in-memory for dev); agent is pure function |
 
 ---
-
+## Prerequisites
+- Python 3.12+
+- Anthropic API key — get one at console.anthropic.com or ask me for a live demo. 
+- 
 ## Quickstart
 
 ```bash
