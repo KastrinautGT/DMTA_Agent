@@ -1,11 +1,19 @@
+
+
 # DMTA Agent
 
-Autonomous drug discovery agent that runs **Design → Make → Test → Analyze** loops,
-connecting LLM reasoning to physical lab instruments.
+An autonomous drug discovery agent that closes the 
+Design → Make → Test → Analyze loop using agentic AI 
+and physical lab instrument integration.
 
-Built as a proof-of-concept for the Lilly Frontier AI / Lab Automation Integration role.
+Claude reasons over experimental data to propose compounds, 
+a Hamilton STAR liquid handler dispenses them, an assay 
+station measures potency and ADMET properties, and the agent 
+analyzes results to decide next steps — pausing between 
+iterations for scientist review.
 
----
+Built on FastAPI, Pydantic, and the Anthropic SDK. 
+Docker and Kubernetes ready.
 
 ## Architecture
 
